@@ -1,3 +1,3 @@
 # losetup.sh
 
-IN WIP fot Tapflow Project.
+IN WIP for Tapflow Project.
