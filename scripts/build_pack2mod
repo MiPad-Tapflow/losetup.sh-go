@@ -1,0 +1,7 @@
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build 
+cp losetup.sh magisk_module
+cd magisk_module
+zip -r module.zip ./*
+mv module.zip ..
+cd ..
+
