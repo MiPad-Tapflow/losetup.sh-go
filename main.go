@@ -65,6 +65,11 @@ func ResetLoop()bool{
 	}
 	return true
 }
+func MakePartitionRW(){
+	Write2Log("remount partirion in rw.")
+	RunCMD("mount","-o","remount,rw","/data/vendor/mslg/rootfs/opt")
+	RunCMD("mount","-o","remount,rw","/data/vendor/mslg/rootfs/usr")
+}
 func Setprop(key string, value string) {
 	Write2Log("Running setprop "+ key+" "+value)
 	RunCMD("setprop", key, value)
@@ -121,6 +126,7 @@ func main() {
 	Path, isro = GetUsrimgPath()
 	SetupLoop(usrimgloop, Path, isro)
 	Setprop("vendor.mslg.mslgusrimg", usrimgloop)
+	MakePartitionRW()
 	Write2Log("finish.")
 	Write2Log("-------------------")
 }
