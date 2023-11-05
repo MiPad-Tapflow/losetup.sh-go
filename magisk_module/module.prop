@@ -3,4 +3,4 @@ name=Tapflow_losetup
 version=V2
 versionCode=9
 author=ljlVink
-description=losetup.sh rewritten in golang to make Xiaomi Pad WPS container writtable filesystem.
+description=[losetup_go:未运行]

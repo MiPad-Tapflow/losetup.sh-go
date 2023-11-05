@@ -1,2 +1,3 @@
 MODDIR=${0%/*}
-$MODDIR/losetup.sh
+export MODDIR=${0%/*}
+cp -f $MODDIR/mslgservice.rc /vendor/etc/init/

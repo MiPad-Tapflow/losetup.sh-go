@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"os/exec"
 	"strings"
 	"time"
@@ -18,7 +19,7 @@ func Write2Log(log string){
 	defer file.Close()
 	file.WriteString("["+currentTime+"] "+log + "\n"); 
 }
-
+var ModulePath string
 func checkAndCreateDir(dirPath string) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		err := os.Mkdir(dirPath, 0755)
@@ -65,10 +66,66 @@ func ResetLoop()bool{
 	}
 	return true
 }
-func MakePartitionRW(){
+func MakePartitionRW(loop_opt string,loop_usr string){
 	Write2Log("remount partirion in rw.")
-	RunCMD("mount","-o","remount,rw","/data/vendor/mslg/rootfs/opt")
-	RunCMD("mount","-o","remount,rw","/data/vendor/mslg/rootfs/usr")
+	RunCMD("mount","-t","ext4","-o","rw",loop_opt,"/data/vendor/mslg/rootfs/opt")
+	RunCMD("mount","-t","ext4","-o","rw",loop_usr,"/data/vendor/mslg/rootfs/usr")
+}
+
+func modifyMagiskDescription(newDescription string) error {
+	file, err := os.OpenFile(ModulePath, os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	// 读取文件内容
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := fileInfo.Size()
+	content := make([]byte, fileSize)
+	_, err = file.Read(content)
+	if err != nil {
+		return err
+	}
+	contentStr := string(content)
+	newContent := strings.Replace(contentStr, "description=", fmt.Sprintf("description=%s\n", newDescription), -1)
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	_, err = file.Write([]byte(newContent))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+//current:定义
+//0 :😃 正常
+//1 :🤔 需要重启
+//2 :😰 错误
+func SetCurnetPropMode(msg string,current int){
+	if (current==0){
+		err:=modifyMagiskDescription("[😋 losetup_go]:"+msg)
+		if err!=nil{
+			fmt.Println(err)
+		}
+		return
+	}
+	if(current==1){
+		err:=modifyMagiskDescription("[🤔 losetup_go]:"+msg)
+		if err!=nil{
+			fmt.Println(err)
+		}
+		return
+	}
+	if(current==2){
+		err:=modifyMagiskDescription("[😰 losetup_go]:"+msg)
+		if err!=nil{
+			fmt.Println(err)
+		}
+	}
 }
 func Setprop(key string, value string) {
 	Write2Log("Running setprop "+ key+" "+value)
@@ -102,11 +159,31 @@ func SetupLoop(loop string, path string, ro bool) {
 		fmt.Println("setup loop result:", cmd)
 	}
 }
+func getExecutablePath() string {
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	return ex
+}
+
+func init(){
+	ModulePath = filepath.Dir(getExecutablePath())+"/module.prop"
+}
 func main() {
 	Write2Log("-------------------")
 	Write2Log("starting losetup.sh")
 	//一般是33或者34 重新挂载多了不好，需要重启
 	if !ResetLoop(){
+		SetCurnetPropMode("losetup卸载失败，请重启。",1)
+		os.Exit(1)
+	}
+	if !fileExists("/data/Tapflow_project/mslgoptimg"){
+		SetCurnetPropMode("尚未初始化[opt]分区，退出",2)
+		os.Exit(1)
+	}
+	if !fileExists("/data/Tapflow_project/mslgusrimg"){
+		SetCurnetPropMode("尚未初始化[usr]分区，退出",2)
 		os.Exit(1)
 	}
 	Resetprop()
@@ -126,7 +203,8 @@ func main() {
 	Path, isro = GetUsrimgPath()
 	SetupLoop(usrimgloop, Path, isro)
 	Setprop("vendor.mslg.mslgusrimg", usrimgloop)
-	MakePartitionRW()
+	MakePartitionRW(optimgloop,usrimgloop)
 	Write2Log("finish.")
+	SetCurnetPropMode("运行完成",0)
 	Write2Log("-------------------")
 }
