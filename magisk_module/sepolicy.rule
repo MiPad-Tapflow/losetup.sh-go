@@ -1,0 +1,30 @@
+allow mslgd mslgd netlink_route_socket { ioctl read write create getattr setattr lock relabelfrom relabelto append unlink link rename }
+allow mslgd mslgd capability sys_ptrace
+allow mslgd ueventd file { read }
+allow mslgd untrusted_app unix_dgram_socket { sendto }
+allow mslgd mslgd tcp_socket { getattr getopt}
+allow mslgd mslgd_exec file entrypoint 
+allow mslgd block_device dir { ioctl search } 
+allow mslgd init unix_stream_socket connectto 
+allow mslgd loop_device blk_file { ioctl open read write } 
+allow mslgd property_socket sock_file write 
+allow mslgd property_socket sock_file { write } 
+allow mslgd mslg_rootfs_file dir search 
+allow mslgd vendor_mslg_prop file { getattr map open read } 
+allow mslgd vendor_mslg_prop property_service set 
+allow mslgd vendor_toolbox_exec file execute_no_trans 
+allow mslgd loop_control_device chr_file { ioctl open read write } 
+allow mslgd vendor_mslg_prop file read 
+allow mslgd vendor_toolbox_exec file execute_no_trans 
+allow mslgd proc_meminfo file { read }
+allow untrusted_app mslg_rootfs_file dir search 
+allow untrusted_app mslg_rootfs_file dir getattr
+allow untrusted_app mslg_rootfs_file dir write
+allow untrusted_app mslg_rootfs_file sock_file write
+allow untrusted_app mslgd unix_stream_socket connectto
+allow untrusted_app mslg_rootfs_file sock_file { write create getattr setattr unlink rename } 
+allow untrusted_app mslg_rootfs_file file { ioctl read write create getattr setattr lock append map unlink link rename open watch } 
+allow untrusted_app mslg_rootfs_file fifo_file { read write create unlink open } 
+allow untrusted_app mslg_rootfs_file dir { read write create getattr setattr open watch add_name remove_name search rmdir } 
+allow untrusted_app mslg_rootfs_file file { read getattr } 
+allow untrusted_app mslgd unix_dgram_socket { sendto }
