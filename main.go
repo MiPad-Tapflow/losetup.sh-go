@@ -190,7 +190,7 @@ func UpdateCurrentMode(current string){
 }
 func init(){
 	checkAndCreateDir("/dev/Tapflow")
-	writestring("/dev/Tapflow/version","V1.2_20231114_Release",false)
+	writestring("/dev/Tapflow/version","V1.2_20231122_Release",false)
 	ModulePath = filepath.Dir(getExecutablePath())+"/module.prop"
 }
 //在重启之后程序在重启前的分区操作

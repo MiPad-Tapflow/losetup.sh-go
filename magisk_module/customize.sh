@@ -18,7 +18,7 @@ if [ ! -f "/vendor/etc/assets/mslgusrimg" ]; then
     ui_print "??mslgusrimg does not exist"
     
     # Check if the file exists in /sdcard/Downloads/
-    if [ -f "/sdcard/Downloads/mslgusrimg" ]; then
+    if [ -f "/sdcard/Downloads/mslgusrimg" || ! -f "/data/Tapflow_project/mslgusrimg"]; then
         # Check if the file already exists in /data/Tapflow_project/
         if [ ! -f "/data/Tapflow_project/mslgusrimg" ]; then
             ui_print "Copying mslgusrimg from /sdcard/Downloads/"
@@ -30,7 +30,7 @@ if [ ! -f "/vendor/etc/assets/mslgusrimg" ]; then
         fi
     else
         ui_print "Error: mslgusrimg not found in /sdcard/Downloads/"
-        exit 1
+        abort
     fi
 fi
 
@@ -38,7 +38,7 @@ if [ ! -f "/vendor/etc/assets/mslgoptimg" ]; then
     ui_print "??mslgoptimg does not exist"
     
     # Check if the file exists in /sdcard/Downloads/
-    if [ -f "/sdcard/Downloads/mslgoptimg" ]; then
+    if [ -f "/sdcard/Downloads/mslgoptimg" || ! -f "/data/Tapflow_project/mslgoptimg"]; then
         # Check if the file already exists in /data/Tapflow_project/
         if [ ! -f "/data/Tapflow_project/mslgoptimg" ]; then
             ui_print "Copying mslgoptimg from /sdcard/Downloads/"
@@ -50,7 +50,7 @@ if [ ! -f "/vendor/etc/assets/mslgoptimg" ]; then
         fi
     else
         ui_print "Error: mslgoptimg not found in /sdcard/Downloads/"
-        exit 1
+        abort
     fi
 fi
 
