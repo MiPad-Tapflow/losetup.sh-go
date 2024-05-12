@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,26 +10,29 @@ import (
 	"time"
 )
 
-func Write2Log(log string){
+var err error
+var ModulePath string
+
+func Write2Log(log string) {
 	currentTime := time.Now().Format("2006/01/02 15:04:05")
-	fmt.Println("["+currentTime+"] "+log)
+	fmt.Println("[" + currentTime + "] " + log)
 	filePath := "/dev/Tapflow/losetup_logs"
-	writestring(filePath,"["+currentTime+"] "+log + "\n",true)
+	writestring(filePath, "["+currentTime+"] "+log+"\n", true)
 }
-//mode true:追加
-//false:覆盖
-func writestring(filepath_underdev string,text string,mode bool){
-	if mode{
+
+// mode true:追加
+// false:覆盖
+func writestring(filepath_underdev string, text string, mode bool) {
+	if mode {
 		file, _ := os.OpenFile(filepath_underdev, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		defer file.Close()
-		file.WriteString(text); 	
-	}else{
+		file.WriteString(text)
+	} else {
 		file, _ := os.OpenFile(filepath_underdev, os.O_WRONLY|os.O_CREATE, 0644)
 		defer file.Close()
-		file.WriteString(text); 
+		file.WriteString(text)
 	}
 }
-var ModulePath string
 func checkAndCreateDir(dirPath string) error {
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		err := os.Mkdir(dirPath, 0755)
@@ -42,6 +44,20 @@ func checkAndCreateDir(dirPath string) error {
 	}
 	return nil
 }
+func checkerr(err error, step string) {
+	if err != nil {
+		Write2Log("error occured :(" + step + ") " + err.Error())
+		SetCurnetPropMode("error occured :("+step+") ", 2)
+		os.Exit(1)
+	}
+}
+func getExecutablePath() string {
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	return ex
+}
 func RunCMD(Name string, ar ...string) (string, error) {
 	cmd := exec.Command(Name, ar...)
 	var out bytes.Buffer
@@ -52,36 +68,28 @@ func RunCMD(Name string, ar ...string) (string, error) {
 	}
 	return strings.TrimSpace(out.String()), nil
 }
-func GetFreeLoop() string {
-	cmd, _ := RunCMD("losetup", "-f")
-	return cmd
-}
-func GetProperty(prop string) string {
-	result, _ := RunCMD("getprop", prop)
-	return result
-}
-func Resetprop() {
-	//清除存在的prop
-	Write2Log("running reset 2 props")
-	RunCMD("setprop", "vendor.mslg.mslgoptimg", "")
-	RunCMD("setprop", "vendor.mslg.mslgusrimg", "")
-}
-func ResetLoop()bool{
-	Write2Log("trying reseting loop")
-	RunCMD("losetup", "-D")
-	cmd,_:=RunCMD("losetup","-a")
-	if strings.Contains(cmd,"mslg"){
-		//卸载失败->可能需要重启
-		Write2Log("ERROR:reseting failed!! Maybe need reboot!!") 
-		return false
+
+// 挂载普通img镜像
+func MountLegacyImg(Type string, imgpath string, Dest string, isRo bool) error {
+	args := []string{"-t", Type}
+	if isRo {
+		args = append(args, "-r")
 	}
-	return true
+	args = append(args, imgpath, Dest)
+	_, err := RunCMD("mount", args...)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func MakePartitionRW(loop_opt string,loop_usr string){
-	Write2Log("remount partirion in rw.")
-	RunCMD("mount","-t","ext4","-o","rw",loop_opt,"/data/vendor/mslg/rootfs/opt")
-	RunCMD("mount","-t","ext4","-o","rw",loop_usr,"/data/vendor/mslg/rootfs/usr")
+// 挂载overlay镜像
+func MountOverlayImg(lowerdir string, upperdir string, workdir string, Dst string) error {
+	_, err = RunCMD("mount", "-t", "overlay", "overlay", "-o", "lowerdir="+lowerdir+",upperdir="+upperdir+",workdir="+workdir, Dst)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func modifyMagiskDescription(newDescription string) error {
@@ -113,169 +121,84 @@ func modifyMagiskDescription(newDescription string) error {
 	}
 	return nil
 }
-//current:定义
-//0 :😃 正常
-//1 :🤔 需要重启
-//2 :😰 错误
-func SetCurnetPropMode(msg string,current int){
-	if (current==0){
-		err:=modifyMagiskDescription("[😋 losetup_go]:"+msg)
+
+// current:定义
+// 0 :😋 正常
+// 1 :🤔 等待
+// 2 :😰 错误
+func SetCurnetPropMode(msg string, current int) {
+	if current == 0 {
+		err := modifyMagiskDescription("[😋 losetup_go]:" + msg)
 		UpdateCurrentMode("0")
-		if err!=nil{
+		if err != nil {
 			fmt.Println(err)
 		}
 		return
 	}
-	if(current==1){
-		err:=modifyMagiskDescription("[🤔 losetup_go]:"+msg)
-		if err!=nil{
+	if current == 1 {
+		err := modifyMagiskDescription("[🤔 losetup_go]:" + msg)
+		if err != nil {
 			fmt.Println(err)
 		}
 		UpdateCurrentMode("1")
 		return
 	}
-	if(current==2){
-		err:=modifyMagiskDescription("[😰 losetup_go]:"+msg)
+	if current == 2 {
+		err := modifyMagiskDescription("[😰 losetup_go]:" + msg)
 		UpdateCurrentMode("2")
-		if err!=nil{
+		if err != nil {
 			fmt.Println(err)
 		}
 	}
 }
 func Setprop(key string, value string) {
-	Write2Log("Running setprop "+ key+" "+value)
+	Write2Log("Running setprop " + key + " " + value)
 	RunCMD("setprop", key, value)
 }
-func fileExists(filePath string) bool {
-	_, err := os.Stat(filePath)
-	return !os.IsNotExist(err)
+
+// current:定义
+// 0 :😃 正常
+// 1 :🤔 等待
+// 2 :😰 错误
+func UpdateCurrentMode(current string) {
+	writestring("/dev/Tapflow/current", current, false)
 }
-func GetOptimgPath() (string, bool) { //位置，是否只读
-	if fileExists("/data/Tapflow_project/mslgoptimg"){
-		return "/data/Tapflow_project/mslgoptimg", false
-	}else{
-		return "/vendor/etc/assets/mslgoptimg",true
-	}
-}
-func GetUsrimgPath() (string, bool) { //位置，是否只读
-	if fileExists("/data/Tapflow_project/mslgusrimg"){
-		return "/data/Tapflow_project/mslgusrimg", false
-	}else{
-		return "/vendor/etc/assets/mslgusrimg",true
-	}
-}
-func SetupLoop(loop string, path string, ro bool) {
-	Write2Log("going to setup loop to "+loop+" "+path)
-	if ro {
-		cmd, _ := RunCMD("losetup", "-r", loop, path)
-		fmt.Println("setup loop result:", cmd)
-	} else {
-		cmd, _ := RunCMD("losetup", loop, path)
-		fmt.Println("setup loop result:", cmd)
-	}
-}
-func getExecutablePath() string {
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	return ex
-}
-//current:定义
-//0 :😃 正常
-//1 :🤔 需要重启
-//2 :😰 错误
-func UpdateCurrentMode(current string){
-	writestring("/dev/Tapflow/current",current,false)
-}
-func init(){
+func init() {
 	checkAndCreateDir("/dev/Tapflow")
-	writestring("/dev/Tapflow/version","V1.2_20231122_Release",false)
-	ModulePath = filepath.Dir(getExecutablePath())+"/module.prop"
+	writestring("/dev/Tapflow/version", "V2.0_20240512_Release", false)
+	ModulePath = filepath.Dir(getExecutablePath()) + "/module.prop"
 }
-//在重启之后程序在重启前的分区操作
-//part: 分区位置
-//size: 大小(这个G要自己加!!)
-func resizePart(part string,size string)string{
-	result,_:=RunCMD("resize2fs","-f",part,size)
-	return result
+func chcon_folder(label, folderpath string) {
+	str, _ := RunCMD("chcon", label, folderpath)
+	Write2Log("restorerecon log:" + str)
 }
-//提前读取config!!在挂载前扩容完
-func ReadConfig_and_resizepart(){
-	usr_img,_:=readFileIfExists("/data/Tapflow_project/need_resize_usr")
-	opt_img,_:=readFileIfExists("/data/Tapflow_project/need_resize_opt")
-	if usr_img!=""{
-		Write2Log("Tapflow need to resize usr to "+usr_img)
-		res:=resizePart("/data/Tapflow_project/mslgusrimg",usr_img)
-		Write2Log("result:"+res)
-	}
-	if opt_img!=""{
-		Write2Log("Tapflow need to resize opt to "+opt_img)
-		res:=resizePart("/data/Tapflow_project/mslgoptimg",opt_img)
-		Write2Log("result:"+res)
-	}
-}
-
-func readFileIfExists(filePath string) (string, error) {
-	// 检测文件是否存在
-	if _, err := os.Stat(filePath); err == nil {
-		// 文件存在
-		content, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return "", err
-		}
-		// Close the file before deleting it
-		if err := os.Remove(filePath); err != nil {
-			return "", err
-		}
-		contentWithoutNewlines := strings.ReplaceAll(string(content), "\n", "")
-		contentWithoutNewlines = strings.ReplaceAll(contentWithoutNewlines, "\r", "")
-		return contentWithoutNewlines, nil
-	} else if os.IsNotExist(err) {
-		// 文件不存在
-		return "", fmt.Errorf("file does not exist: %s", filePath)
-	} else {
-		// 发生其他错误
-		return "", err
-	}
-}
-
 func main() {
+	work_path := "/data/rootfs/losetup.sh-go"
 	Write2Log("-------------------")
-	Write2Log("starting losetup.sh")
-	//一般是33或者34 重新挂载多了不好，需要重启
-	if !ResetLoop(){
-		SetCurnetPropMode("losetup卸载失败，请重启。",1)
-		os.Exit(1)
-	}
-	if !fileExists("/data/Tapflow_project/mslgoptimg"){
-		SetCurnetPropMode("尚未初始化[opt]分区，退出",2)
-		os.Exit(1)
-	}
-	if !fileExists("/data/Tapflow_project/mslgusrimg"){
-		SetCurnetPropMode("尚未初始化[usr]分区，退出",2)
-		os.Exit(1)
-	}
-	Resetprop()
-	ReadConfig_and_resizepart()
-	var optimgloop string
-	var usrimgloop string
-	for !strings.HasPrefix(optimgloop, "/dev/block/loop") {
-		time.Sleep(1 * time.Second)
-		optimgloop = GetFreeLoop()
-	}
-	Path, isro := GetOptimgPath()
-	SetupLoop(optimgloop, Path, isro)
-	Setprop("vendor.mslg.mslgoptimg", optimgloop)
-	for !strings.HasPrefix(usrimgloop, "/dev/block/loop") {
-		time.Sleep(1 * time.Second)
-		usrimgloop = GetFreeLoop()
-	}
-	Path, isro = GetUsrimgPath()
-	SetupLoop(usrimgloop, Path, isro)
-	Setprop("vendor.mslg.mslgusrimg", usrimgloop)
-	MakePartitionRW(optimgloop,usrimgloop)
+	Write2Log("starting losetup for Tapflow project")
+	//1.mount usr.img
+	checkAndCreateDir(work_path)
+	checkAndCreateDir(filepath.Join(work_path, "usr"))
+	checkAndCreateDir(filepath.Join(work_path, "partition_ro"))
+	checkAndCreateDir(filepath.Join(work_path, "partition_ro", "usr"))
+	err = MountLegacyImg("ext4", filepath.Join(work_path, "usr.img"), filepath.Join(work_path, "usr"), false)
+	checkerr(err, "mount legacy img")
+	//create workdir and upperdir
+	checkAndCreateDir(filepath.Join(work_path, "usr", "upper"))
+	checkAndCreateDir(filepath.Join(work_path, "usr", "work"))
+	//mount erofs mslgusrimg
+	err = MountLegacyImg("erofs", "/odm/etc/assets/mslgusrimg", filepath.Join(work_path, "partition_ro", "usr"), true)
+	checkerr(err, "mount(ro) usr from odm")
+	//mount overlay usr.img
+	err = MountOverlayImg(filepath.Join(work_path, "partition_ro", "usr"), filepath.Join(work_path, "usr", "upper"), filepath.Join(work_path, "usr", "work"), "/data/rootfs/usr")
+	//no need to mount mslgkingsoftimg and mslgappsimg ,because /odm/bin/losetup.sh loaded
+	//wait 5 secs and override system prop
+	SetCurnetPropMode("Wait For 5 secs ", 1)
+	time.Sleep(time.Duration(5) * time.Second)
+	RunCMD("setprop", "vendor.mslg.mslgusrimg", "null")
+	//set usr sec label
+	chcon_folder("u:object_r:mslg_rootfs_file:s0", "/data/rootfs/usr/")
 	Write2Log("finish.")
-	SetCurnetPropMode("运行完成",0)
+	SetCurnetPropMode("Finished! ", 0)
 	Write2Log("-------------------")
 }

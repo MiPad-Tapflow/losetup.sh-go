@@ -1,4 +1,0 @@
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build 
-adb push losetup.sh /data/local/tmp
-adb shell chmod 777 /data/local/tmp/losetup.sh
-adb shell  su -c /data/local/tmp/losetup.sh
