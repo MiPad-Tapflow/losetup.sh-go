@@ -195,12 +195,12 @@ func chmod_folder(label, folderpath string) {
 }
 func check_and_safe_reinstall_rootfs() {
 	rootfs_path := "/data/rootfs"
-	reinstall_tag := filepath.Join(ModulePath, "reinstall")
+	reinstall_tag := filepath.Join(filepath.Dir(getExecutablePath()), "reinstall")
 	if !fileExists(reinstall_tag) {
 		return
 	}
 	Write2Log("start reinstall rootfs")
-	os.Remove(reinstall_tag)
+	RunCMD("rm",reinstall_tag)
 	//start reinstall and rebuild overlay ext4 img .
 	RunCMD("rm", "-rf", rootfs_path)
 	checkAndCreateDir(rootfs_path)                              //rebuild rootfs path
@@ -245,9 +245,10 @@ func main() {
 	//mount erofs mslgusrimg
 	err = MountLegacyImg("erofs", "/odm/etc/assets/mslgusrimg", lowerdir, true)
 	checkerr(err, "mount(ro) usr from odm")
+	time.Sleep(time.Duration(3) * time.Second)
 	//mount overlay usr.img
 	err = MountOverlayImg(filepath.Join(work_path, "partition_ro", "usr"), filepath.Join(work_path, "usr", "upper"), filepath.Join(work_path, "usr", "work"), "/data/rootfs/usr")
-	checkerr(err, "mount(ro) usr from odm")
+	checkerr(err, "mount(overlay) usr from odm")
 	//no need to mount mslgkingsoftimg and mslgappsimg ,because /odm/bin/losetup.sh loaded
 	SetCurnetPropMode("Wait For 5 secs ", 1) //wait 5 secs and override system prop
 	time.Sleep(time.Duration(5) * time.Second)
