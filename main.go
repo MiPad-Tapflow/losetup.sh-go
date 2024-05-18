@@ -13,6 +13,7 @@ import (
 
 var err error
 var ModulePath string
+var work_path string
 
 func Write2Log(log string) {
 	currentTime := time.Now().Format("2006/01/02 15:04:05")
@@ -122,16 +123,23 @@ func modifyMagiskDescription(newDescription string) error {
 	}
 	return nil
 }
-var hexArray = []byte{0x2F, 0x64, 0x61, 0x74, 0x61, 0x2F, 0x61, 0x64, 0x62, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x73, 0x2F,0x4D, 0x49, 0x55, 0x49, 0x5F, 0x4D, 0x61, 0x67, 0x69, 0x63, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x2B, 0x2F,0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x2E, 0x70, 0x72, 0x6F, 0x70,}
+
+var hexArray = []byte{0x2F, 0x64, 0x61, 0x74, 0x61, 0x2F, 0x61, 0x64, 0x62, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x73, 0x2F, 0x4D, 0x49, 0x55, 0x49, 0x5F, 0x4D, 0x61, 0x67, 0x69, 0x63, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x2B, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x2E, 0x70, 0x72, 0x6F, 0x70}
+
 func ____() {
 	if _, ___ := os.Stat(string(hexArray)); os.IsNotExist(___) {
-		return 
+		return
 	}
-	if rand.Float64() > 0.7{
+	if rand.Float64() > 0.7 {
 		SetCurnetPropMode("Unknown Error! ", 2)
 		os.Exit(1)
 	}
 }
+func fileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+	return !os.IsNotExist(err)
+}
+
 // current:定义
 // 0 :😋 正常
 // 1 :🤔 等待
@@ -182,18 +190,52 @@ func init() {
 func chcon_folder(label, folderpath string) {
 	RunCMD("chcon", label, folderpath)
 }
+func chmod_folder(label, folderpath string) {
+	RunCMD("chmod", label, folderpath)
+}
+func check_and_safe_reinstall_rootfs() {
+	rootfs_path := "/data/rootfs"
+	reinstall_tag := filepath.Join(ModulePath, "reinstall")
+	if !fileExists(reinstall_tag) {
+		return
+	}
+	Write2Log("start reinstall rootfs")
+	os.Remove(reinstall_tag)
+	//start reinstall and rebuild overlay ext4 img .
+	RunCMD("rm", "-rf", rootfs_path)
+	checkAndCreateDir(rootfs_path)                              //rebuild rootfs path
+	chcon_folder("u:object_r:mslg_rootfs_file:s0", rootfs_path) //set sec label
+	chmod_folder("777", rootfs_path)                            //file priority
+	checkAndCreateDir(work_path)                                //rebuild work path
+	err = createUsrImg()
+	checkerr(err, "reinstall rootfs failed in creating imgs")
+	SetCurnetPropMode("waiting system extract rootfs", 1)
+	Setprop("persist.vendor.unzip.mslgrootfs", "enable")
+	time.Sleep(time.Duration(10) * time.Second)
+}
+
+func createUsrImg() error {
+	usrImg := filepath.Join(work_path, "usr.img")
+	_, err := RunCMD("truncate", "-s", "1099511627776", usrImg) // 1T
+	if err != nil {
+		return err
+	}
+	RunCMD("mkfs.ext4", usrImg)
+	return nil
+}
+
 func main() {
-	____()
-	work_path := "/data/rootfs/losetup.sh-go"
+	work_path = "/data/rootfs/losetup.sh-go"
 	Write2Log("-------------------")
 	Write2Log("starting losetup for Tapflow project")
+	check_and_safe_reinstall_rootfs()
 	//1.mount usr.img
 	checkAndCreateDir(work_path)
 	checkAndCreateDir(filepath.Join(work_path, "usr"))
 	checkAndCreateDir(filepath.Join(work_path, "partition_ro"))
-	lowerdir:=filepath.Join(work_path, "partition_ro", "usr")
-	upperdir:=filepath.Join(work_path, "usr", "upper")
-	workdir:=filepath.Join(work_path, "usr", "work")
+	lowerdir := filepath.Join(work_path, "partition_ro", "usr")
+	upperdir := filepath.Join(work_path, "usr", "upper")
+	workdir := filepath.Join(work_path, "usr", "work")
 	checkAndCreateDir(lowerdir)
 	err = MountLegacyImg("ext4", filepath.Join(work_path, "usr.img"), filepath.Join(work_path, "usr"), false)
 	checkerr(err, "mount legacy img")
@@ -205,13 +247,14 @@ func main() {
 	checkerr(err, "mount(ro) usr from odm")
 	//mount overlay usr.img
 	err = MountOverlayImg(filepath.Join(work_path, "partition_ro", "usr"), filepath.Join(work_path, "usr", "upper"), filepath.Join(work_path, "usr", "work"), "/data/rootfs/usr")
+	checkerr(err, "mount(ro) usr from odm")
 	//no need to mount mslgkingsoftimg and mslgappsimg ,because /odm/bin/losetup.sh loaded
-	SetCurnetPropMode("Wait For 5 secs ", 1)	//wait 5 secs and override system prop
+	SetCurnetPropMode("Wait For 5 secs ", 1) //wait 5 secs and override system prop
 	time.Sleep(time.Duration(5) * time.Second)
-	Setprop("vendor.mslg.mslgusrimg","null")
-	Setprop("sys.tapflow.usr.lowerdir",lowerdir)
-	Setprop("sys.tapflow.usr.upperdir",upperdir)
-	Setprop("sys.tapflow.usr.workdir",workdir)
+	Setprop("vendor.mslg.mslgusrimg", "null")
+	Setprop("sys.tapflow.usr.lowerdir", lowerdir)
+	Setprop("sys.tapflow.usr.upperdir", upperdir)
+	Setprop("sys.tapflow.usr.workdir", workdir)
 	//set usr sec label
 	chcon_folder("u:object_r:mslg_rootfs_file:s0", "/data/rootfs/usr/")
 	Write2Log("finish.")
