@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"math/rand"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -124,17 +124,6 @@ func modifyMagiskDescription(newDescription string) error {
 	return nil
 }
 
-var hexArray = []byte{0x2F, 0x64, 0x61, 0x74, 0x61, 0x2F, 0x61, 0x64, 0x62, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x73, 0x2F, 0x4D, 0x49, 0x55, 0x49, 0x5F, 0x4D, 0x61, 0x67, 0x69, 0x63, 0x57, 0x69, 0x6E, 0x64, 0x6F, 0x77, 0x2B, 0x2F, 0x6D, 0x6F, 0x64, 0x75, 0x6C, 0x65, 0x2E, 0x70, 0x72, 0x6F, 0x70}
-
-func ____() {
-	if _, ___ := os.Stat(string(hexArray)); os.IsNotExist(___) {
-		return
-	}
-	if rand.Float64() > 0.7 {
-		SetCurnetPropMode("Unknown Error! ", 2)
-		os.Exit(1)
-	}
-}
 func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 	return !os.IsNotExist(err)
@@ -200,7 +189,7 @@ func check_and_safe_reinstall_rootfs() {
 		return
 	}
 	Write2Log("start reinstall rootfs")
-	RunCMD("rm",reinstall_tag)
+	RunCMD("rm", reinstall_tag)
 	//start reinstall and rebuild overlay ext4 img .
 	RunCMD("rm", "-rf", rootfs_path)
 	checkAndCreateDir(rootfs_path)                              //rebuild rootfs path
@@ -223,11 +212,24 @@ func createUsrImg() error {
 	RunCMD("mkfs.ext4", usrImg)
 	return nil
 }
+func GetProperty(prop string) string {
+	result, _ := RunCMD("getprop", prop)
+	return result
+}
 
 func main() {
 	work_path = "/data/rootfs/losetup.sh-go"
 	Write2Log("-------------------")
 	Write2Log("starting losetup for Tapflow project")
+	//while 1 : getprop sys.boot.completed
+	for {
+		if GetProperty("sys.boot_completed") == "1" {
+			break
+		} else {
+			time.Sleep(time.Duration(1) * time.Second)
+		}
+	}
+	Write2Log("boot completed,start..")
 	check_and_safe_reinstall_rootfs()
 	//1.mount usr.img
 	checkAndCreateDir(work_path)
