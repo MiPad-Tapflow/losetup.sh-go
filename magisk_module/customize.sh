@@ -1,10 +1,6 @@
 SKIPUNZIP=0
 
-ui_print "#####################"
-ui_print "TapFlow Project  -> WPS losetup_go install script "
-ui_print "By ljlVink"
-ui_print "#####################"
-
+ui_print "TapFlow Project -> MSLG losetup_go install script "
 
 rootfs_dir="/data/rootfs"
 work_dir="/data/rootfs/losetup.sh-go"
@@ -27,7 +23,5 @@ if [ ! -f "$usr_img" ]; then
 fi
 
 
-ui_print "Success."
-ui_print "本模块将在设备重启后生效。"
-ui_print "This module will take effect after the device is restarted."
-ui_print "Этот модуль вступит в силу после перезагрузки устройства."
+ui_print "安装成功,本模块将在设备重启后生效。"
+ui_print "Success! This module will take effect after the device is restarted."
