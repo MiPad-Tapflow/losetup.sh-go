@@ -1,6 +1,6 @@
 id=losetup_go
 name=Tapflow_losetup
-version=V3
-versionCode=10
+version=V2.1_20240526_Release
+versionCode=11
 author=ljlVink
 description=[losetup_go]! Not Initalized !

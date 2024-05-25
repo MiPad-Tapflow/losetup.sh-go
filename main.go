@@ -173,7 +173,7 @@ func UpdateCurrentMode(current string) {
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	checkAndCreateDir("/dev/Tapflow")
-	writestring("/dev/Tapflow/version", "V2.0_20240512_Release", false)
+	writestring("/dev/Tapflow/version", "V2.1_20240526_Release", false)
 	ModulePath = filepath.Dir(getExecutablePath()) + "/module.prop"
 }
 func chcon_folder(label, folderpath string) {
